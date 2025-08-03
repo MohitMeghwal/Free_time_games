@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Free Time Games - Play Circle Smash, Choose Color, Flying Dot, Tic Tac Toe and more fun games online!" />
+  <meta name="keywords" content="Free Time Games, HTML5 Games, Circle Smash, Flying Dot, Choose Color, Tic Tac Toe" />
+  <meta name="author" content="Mohit Meghwal" />
+  <title>Free Time Games</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(-45deg, #ff9a9e, #fad0c4, #a18cd1, #fbc2eb);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    header {
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 2rem 1rem;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      animation: fadeInDown 1s ease;
+    }
+
+    header p {
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+      animation: fadeInUp 1s ease;
+    }
+
+    .ad-banner {
+      margin: 1rem auto;
+      text-align: center;
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem 1rem;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .game-card {
+      border-radius: 16px;
+      text-align: center;
+      text-decoration: none;
+      color: white;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      padding: 2.5rem 1rem;
+      background: linear-gradient(145deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      backdrop-filter: blur(8px);
+    }
+
+    .game-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -75%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(120deg, rgba(255,255,255,0.3), rgba(255,255,255,0));
+      transform: skewX(-20deg);
+      transition: left 0.7s ease;
+    }
+
+    .game-card:hover::after {
+      left: 125%;
+    }
+
+    .game-card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 16px 32px rgba(0,0,0,0.4);
+    }
+
+    .emoji-logo {
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+      animation: floatEmoji 2s ease-in-out infinite;
+    }
+
+    @keyframes floatEmoji {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .game-card h3 {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .circle-smash { background-color: #ff4d4d; }
+    .choose-color { background-color: #4d94ff; }
+    .flying-dot   { background-color: #33cc99; }
+    .tictactoe    { background-color: #ffcc00; }
+
+    footer {
+      background-color: rgba(0, 0, 0, 0.6);
+      color: white;
+      text-align: center;
+      padding: 1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    @keyframes fadeInDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🎮 Free Time Games</h1>
+    <p>Fun, Addictive, and Totally Free Mini-Games!</p>
+  </header>
+
+  <section class="ad-banner">
+    <!-- Google AdSense -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-xxxxxxxxxxxxxxxx"
+         data-ad-slot="1234567890"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </section>
+
+  <main>
+    <section class="game-grid">
+      <!-- Circle Smash -->
+      <a href="games/circle-smash.html" class="game-card circle-smash">
+        <div class="emoji-logo">🎯</div>
+        <h3>Circle Smash</h3>
+      </a>
+
+      <!-- Choose Color -->
+      <a href="games/choose-color.html" class="game-card choose-color">
+        <div class="emoji-logo">🎨</div>
+        <h3>Choose Color</h3>
+      </a>
+
+      <!-- Flying Dot -->
+      <a href="games/flying-dot.html" class="game-card flying-dot">
+        <div class="emoji-logo">🥏</div>
+        <h3>Flying Dot</h3>
+      </a>
+
+      <!-- Tic Tac Toe -->
+      <a href="/Tic tac toe.html" class="game-card tictactoe">
+        <div class="emoji-logo">❌⭕</div>
+        <h3>Tic Tac Toe</h3>
+      </a>
+    </section>
+  </main>
+
+  <section class="ad-banner">
+    <!-- Google AdSense -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-xxxxxxxxxxxxxxxx"
+         data-ad-slot="9876543210"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </section>
+
+  <footer>
+    <p>© 2025 Free Time Games. All rights reserved.</p>
+  </footer>
+
+  <!-- Google AdSense Script -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
+
+</body>
+</html>
