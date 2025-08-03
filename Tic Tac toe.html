@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe - Free Time Games</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #84fab0, #8fd3f4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: white;
+      color: #333;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #f0f0f0;
+    }
+
+    .status {
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: bold;
+      min-height: 1.5rem;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .board {
+      display: grid;
+      gap: 5px;
+      margin-top: 1rem;
+    }
+
+    .cell {
+      background: #fff;
+      width: 60px;
+      height: 60px;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .cell:hover {
+      background: #e0e0e0;
+    }
+
+    @media (max-width: 600px) {
+      .cell {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+      }
+    }
+
+    canvas#confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      width: 100%;
+      height: 100%;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tic Tac Toe ❌⭕</h1>
+
+  <div class="controls">
+    <button id="startBtn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <div class="status" id="status">Tap Start to Play</div>
+  <div class="board" id="board"></div>
+  <canvas id="confetti"></canvas>
+
+  <script>
+    let boardSize = 3;
+    let currentPlayer = 'X';
+    let board = [];
+    let gameOver = false;
+
+    const startBtn = document.getElementById('startBtn');
+    const statusText = document.getElementById('status');
+    const boardContainer = document.getElementById('board');
+
+    function startGame() {
+      board = Array(boardSize * boardSize).fill('');
+      currentPlayer = 'X';
+      gameOver = false;
+
+      boardContainer.innerHTML = '';
+      boardContainer.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+
+      for (let i = 0; i < board.length; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', handleMove);
+        boardContainer.appendChild(cell);
+      }
+
+      startBtn.style.display = 'none';
+      statusText.textContent = `Player ${currentPlayer}'s turn`;
+    }
+
+    function handleMove(e) {
+      const index = e.target.dataset.index;
+      if (gameOver || board[index]) return;
+
+      board[index] = currentPlayer;
+      e.target.textContent = currentPlayer;
+
+      if (checkWin(currentPlayer)) {
+        statusText.textContent = `🎉 Player ${currentPlayer} wins!`;
+        triggerConfetti();
+        gameOver = true;
+        setTimeout(startGame, 3000);
+      } else if (board.every(cell => cell)) {
+        statusText.textContent = `It's a draw!`;
+        gameOver = true;
+        setTimeout(startGame, 3000);
+      } else {
+        currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+        statusText.textContent = `Player ${currentPlayer}'s turn`;
+      }
+    }
+
+    function checkWin(player) {
+      const lines = [];
+
+      for (let r = 0; r < boardSize; r++) {
+        const row = [], col = [];
+        for (let c = 0; c < boardSize; c++) {
+          row.push(r * boardSize + c);
+          col.push(c * boardSize + r);
+        }
+        lines.push(row, col);
+      }
+
+      const diag1 = [], diag2 = [];
+      for (let i = 0; i < boardSize; i++) {
+        diag1.push(i * boardSize + i);
+        diag2.push(i * boardSize + (boardSize - i - 1));
+      }
+      lines.push(diag1, diag2);
+
+      return lines.some(line => {
+        return line.every(index => board[index] === player);
+      });
+    }
+
+    // Confetti animation
+    function triggerConfetti() {
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const particles = [];
+
+      for (let i = 0; i < 100; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height / 2,
+          size: Math.random() * 6 + 2,
+          color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+          velocity: {
+            x: (Math.random() - 0.5) * 4,
+            y: Math.random() * 4 + 2
+          }
+        });
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          p.x += p.velocity.x;
+          p.y += p.velocity.y;
+        });
+      }
+
+      let count = 0;
+      const interval = setInterval(() => {
+        animate();
+        count++;
+        if (count > 50) {
+          clearInterval(interval);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }, 30);
+    }
+  </script>
+</body>
+</html>
