@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Tap the Right Color</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      text-align: center;
+      touch-action: manipulation;
+    }
+    .prompt {
+      font-size: 6vw;
+      font-weight: bold;
+      margin: 4vh 0 1vh;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3vw;
+      width: 90%;
+      margin: 0 auto;
+    }
+    .color-btn {
+      height: 20vh;
+      border-radius: 12px;
+      border: none;
+      font-size: 4vw;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+    }
+    #red { background: #e74c3c; }
+    #green { background: #2ecc71; }
+    #blue { background: #3498db; }
+    #yellow { background: #f1c40f; color: #000; }
+    .info {
+      margin-top: 2vh;
+      font-size: 4vw;
+    }
+    #bar {
+      height: 6px;
+      width: 100%;
+      background: lime;
+      transition: width 1s linear;
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.9);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding: 20px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 14px 28px;
+      font-size: 5vw;
+      border: none;
+      border-radius: 10px;
+      background: #0ff;
+      color: #000;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0cc;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="overlay" id="startScreen">
+    <h1 style="font-size: 8vw;">🎯 Tap the Right Color</h1>
+    <p style="font-size: 5vw;">Tap the right color in time!</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <div class="overlay" id="gameOverScreen" style="display: none;">
+    <h2 style="font-size: 7vw;">Game Over</h2>
+    <p id="finalScore" style="font-size: 5vw;"></p>
+    <p id="bestScore" style="font-size: 4.5vw;"></p>
+    <button onclick="startGame()">Restart</button>
+  </div>
+
+  <div class="prompt" id="promptColor">Ready?</div>
+  <div id="bar"></div>
+
+  <div class="buttons">
+    <button class="color-btn" id="red" onclick="handleClick('red')">Red</button>
+    <button class="color-btn" id="green" onclick="handleClick('green')">Green</button>
+    <button class="color-btn" id="blue" onclick="handleClick('blue')">Blue</button>
+    <button class="color-btn" id="yellow" onclick="handleClick('yellow')">Yellow</button>
+  </div>
+
+  <div class="info">
+    <p>Score: <span id="score">0</span></p>
+    <p>High Score: <span id="highScore">0</span></p>
+  </div>
+
+<script>
+const colors = ['red', 'green', 'blue', 'yellow'];
+let target = '';
+let score = 0;
+let highScore = localStorage.getItem('tapColorHigh') || 0;
+let timer;
+let timeLimit = 1000;
+
+document.getElementById('highScore').textContent = highScore;
+
+function newRound() {
+  target = colors[Math.floor(Math.random() * colors.length)];
+  document.getElementById('promptColor').textContent = target.toUpperCase();
+  document.getElementById('promptColor').style.color = target;
+
+  clearTimeout(timer);
+  document.getElementById('bar').style.transition = 'none';
+  document.getElementById('bar').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('bar').style.transition = `width ${timeLimit}ms linear`;
+    document.getElementById('bar').style.width = '0%';
+  }, 20);
+
+  timer = setTimeout(endGame, timeLimit);
+}
+
+function handleClick(color) {
+  if (color === target) {
+    score++;
+    document.getElementById('score').textContent = score;
+    if (score % 5 === 0 && timeLimit > 400) timeLimit -= 50;
+    newRound();
+  } else {
+    endGame();
+  }
+}
+
+function startGame() {
+  score = 0;
+  timeLimit = 1000;
+  document.getElementById('score').textContent = score;
+  document.getElementById('highScore').textContent = highScore;
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('gameOverScreen').style.display = 'none';
+  newRound();
+}
+
+function endGame() {
+  clearTimeout(timer);
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('tapColorHigh', highScore);
+  }
+  document.getElementById('finalScore').textContent = 'Score: ' + score;
+  document.getElementById('bestScore').textContent = 'High Score: ' + highScore;
+  document.getElementById('gameOverScreen').style.display = 'flex';
+}
+</script>
+
+</body>
+</html>
