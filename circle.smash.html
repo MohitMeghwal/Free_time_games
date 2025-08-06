@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Circle Smash</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      overflow: hidden;
+      font-family: sans-serif;
+      touch-action: manipulation;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #111;
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      z-index: 10;
+      text-align: center;
+    }
+    button {
+      padding: 14px 28px;
+      font-size: 18px;
+      margin-top: 20px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0c0;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game" width="360" height="640"></canvas>
+
+<div id="startScreen" class="overlay">
+  <h1>Circle Smash</h1>
+  <p>Tap when the dot hits the green zone!</p>
+  <p id="highScoreDisplay">High Score: 0</p>
+  <button onclick="startGame()">Start</button>
+</div>
+
+<div id="gameOverScreen" class="overlay" style="display: none;">
+  <h2>Game Over</h2>
+  <p id="finalScore"></p>
+  <p id="finalHighScore"></p>
+  <button onclick="startGame()">Restart</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let centerX = canvas.width / 2;
+let centerY = canvas.height / 2;
+let radius = 100;
+let angle = 0;
+let speed = 0.02;
+let baseSpeed = 0.02;
+let targetStart = Math.PI * 0.8;
+let targetEnd = Math.PI * 1.2;
+let score = 0;
+let gameRunning = false;
+let animationId = null;
+let highScore = parseInt(localStorage.getItem('circleSmashHighScore')) || 0;
+
+function drawTargetZone() {
+  ctx.beginPath();
+  ctx.strokeStyle = "#0f0";
+  ctx.lineWidth = 20;
+  ctx.arc(centerX, centerY, radius, targetStart, targetEnd);
+  ctx.stroke();
+}
+
+function drawMovingDot() {
+  const x = centerX + radius * Math.cos(angle);
+  const y = centerY + radius * Math.sin(angle);
+  ctx.beginPath();
+  ctx.fillStyle = "#0ff";
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawScore() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "24px Arial";
+  ctx.fillText("Score: " + score, 20, 40);
+}
+
+function update() {
+  if (!gameRunning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawTargetZone();
+  drawMovingDot();
+  drawScore();
+
+  angle += speed;
+  if (angle > Math.PI * 2) angle -= Math.PI * 2;
+
+  animationId = requestAnimationFrame(update);
+}
+
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('gameOverScreen').style.display = 'none';
+  angle = 0;
+  speed = baseSpeed;
+  score = 0;
+  gameRunning = true;
+  cancelAnimationFrame(animationId);
+  update();
+}
+
+function endGame() {
+  gameRunning = false;
+  cancelAnimationFrame(animationId);
+
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('circleSmashHighScore', highScore);
+  }
+
+  document.getElementById('finalScore').textContent = "Score: " + score;
+  document.getElementById('finalHighScore').textContent = "High Score: " + highScore;
+  document.getElementById('gameOverScreen').style.display = 'flex';
+  document.getElementById('highScoreDisplay').textContent = "High Score: " + highScore;
+}
+
+function checkTap() {
+  if (!gameRunning) return;
+  if (angle > targetStart && angle < targetEnd) {
+    score++;
+    speed = baseSpeed + score * 0.0025;
+  } else {
+    endGame();
+  }
+}
+
+canvas.addEventListener("click", checkTap);
+canvas.addEventListener("touchstart", checkTap);
+document.getElementById('highScoreDisplay').textContent = "High Score: " + highScore;
+</script>
+
+</body>
+</html>
