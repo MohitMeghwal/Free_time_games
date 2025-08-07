@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Click Dodger</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      background: #222;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+    button {
+      background: #0ff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-top: 20px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="startScreen" class="overlay">
+    <h1>Click Dodger</h1>
+    <button onclick="startGame()">Start</button>
+  </div>
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="scoreText"></p>
+    <p id="highScoreText"></p>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+
+  <audio id="bgMusic" src="https://cdn.pixabay.com/download/audio/2022/03/14/audio_7b9d5f5f8e.mp3" loop></audio>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const bgMusic = document.getElementById("bgMusic");
+
+    let player, obstacles, score, highScore = 0;
+    let gameRunning = false;
+    let speed = 2;
+    let obstacleRate = 90;
+    let frame = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function initGame() {
+      player = {
+        x: canvas.width / 2,
+        y: canvas.height - 100,
+        r: 20
+      };
+      obstacles = [];
+      score = 0;
+      speed = 2;
+      frame = 0;
+      gameRunning = true;
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = "#0ff";
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#f44";
+      for (let ob of obstacles) {
+        ob.y += speed;
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      }
+      obstacles = obstacles.filter(ob => ob.y < canvas.height + ob.h);
+    }
+
+    function checkCollision() {
+      for (let ob of obstacles) {
+        if (
+          player.x + player.r > ob.x &&
+          player.x - player.r < ob.x + ob.w &&
+          player.y + player.r > ob.y &&
+          player.y - player.r < ob.y + ob.h
+        ) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function drawScore() {
+      ctx.fillStyle = "#fff";
+      ctx.font = "18px sans-serif";
+      ctx.fillText("Score: " + score, 10, 30);
+    }
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPlayer();
+      drawObstacles();
+      drawScore();
+      checkCollision();
+
+      if (frame % obstacleRate === 0) {
+        const w = 40 + Math.random() * 40;
+        const x = Math.random() * (canvas.width - w);
+        obstacles.push({ x, y: -60, w, h: 30 });
+      }
+
+      score++;
+      if (score % 100 === 0) {
+        speed += 0.5;
+        if (obstacleRate > 30) obstacleRate -= 5;
+      }
+
+      frame++;
+      if (gameRunning) requestAnimationFrame(update);
+    }
+
+    function startGame() {
+      document.getElementById("startScreen").style.display = "none";
+      bgMusic.play();
+      initGame();
+      update();
+    }
+
+    function restartGame() {
+      document.getElementById("gameOverScreen").style.display = "none";
+      bgMusic.play();
+      initGame();
+      update();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      bgMusic.pause();
+      if (score > highScore) highScore = score;
+      document.getElementById("scoreText").textContent = "Score: " + score;
+      document.getElementById("highScoreText").textContent = "High Score: " + highScore;
+      document.getElementById("gameOverScreen").style.display = "flex";
+    }
+
+    canvas.addEventListener("click", e => {
+      if (!gameRunning) return;
+      player.x = e.clientX;
+      player.y = e.clientY;
+    });
+
+    canvas.addEventListener("touchstart", e => {
+      if (!gameRunning) return;
+      const touch = e.touches[0];
+      player.x = touch.clientX;
+      player.y = touch.clientY;
+    });
+  </script>
+</body>
+</html>
