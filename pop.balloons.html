@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pop the Balloons</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      width:100%; height:100%;
+      background:#000;
+      overflow:hidden;
+      font-family:Arial, sans-serif;
+      text-align:center;
+    }
+    #gameContainer {
+      position:relative;
+      max-width:360px;
+      margin:0 auto;
+    }
+    canvas {
+      width:100%;
+      height:auto;
+      background:linear-gradient(to top, #87ceeb, #fff);
+      border-left:4px solid #0ff;
+      border-right:4px solid #0ff;
+      display:block;
+    }
+    .overlay {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      background:rgba(0,0,0,0.85);
+      color:#fff;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      z-index:10;
+    }
+    .overlay h1, .overlay h2, .overlay p { margin:10px 0; }
+    button {
+      padding:12px 24px; font-size:18px;
+      background:#0ff; border:none;
+      border-radius:8px; cursor:pointer;
+      margin-top:20px;
+    }
+    button:hover { background:#0cc; }
+    #scoreDisplay {
+      position:absolute; top:8px; left:8px;
+      color:#000; font-size:18px;
+      background:rgba(255,255,255,0.7);
+      padding:4px 8px; border-radius:6px;
+      z-index:5;
+    }
+  </style>
+</head>
+<body>
+
+<div id="gameContainer">
+  <div id="scoreDisplay">Score: 0</div>
+  <canvas id="gameCanvas" width="360" height="640"></canvas>
+
+  <div id="startScreen" class="overlay">
+    <h1>Pop the Balloons</h1>
+    <p>Tap 🎈 to score, avoid 💣</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="finalScore"></p>
+    <p id="highScoreText"></p>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas'),
+      ctx    = canvas.getContext('2d'),
+      scoreEl= document.getElementById('scoreDisplay'),
+      startO = document.getElementById('startScreen'),
+      overO  = document.getElementById('gameOverScreen'),
+      finalE = document.getElementById('finalScore'),
+      highE  = document.getElementById('highScoreText');
+
+let balloons=[], score=0,
+    highScore=localStorage.getItem('popHigh')||0,
+    running=false, anim, timer;
+
+function reset(){
+  balloons=[]; score=0;
+  scoreEl.textContent='Score: 0';
+}
+
+function spawn(){
+  const isBomb=Math.random()<0.2,
+        emoji= isBomb?'💣':'🎈',
+        size=50,
+        x=Math.random()*(canvas.width-size*2)+size,
+        speed=(1+Math.random())*(1+score*0.05);
+  balloons.push({x, y:canvas.height+size, vy:speed, emoji, isBomb, size});
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.textAlign='center';
+  balloons.forEach(b=>{
+    ctx.font=b.size+'px serif';
+    ctx.fillText(b.emoji, b.x, b.y);
+    b.y-=b.vy;
+  });
+}
+
+function checkOff(){
+  for(let i=0;i<balloons.length;i++){
+    if(balloons[i].y < -balloons[i].size){
+      if(!balloons[i].isBomb) return end();
+      balloons.splice(i,1);
+      i--;
+    }
+  }
+}
+
+function loop(){
+  if(!running) return;
+  draw();
+  checkOff();
+  balloons=balloons.filter(b=>b.y> -50);
+  anim=requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click',e=>{
+  if(!running) return;
+  const rect=canvas.getBoundingClientRect(),
+        mx=e.clientX-rect.left,
+        my=e.clientY-rect.top;
+  for(let i=balloons.length-1;i>=0;i--){
+    const b=balloons[i],
+          dx=mx-b.x, dy=my-b.y;
+    if(Math.hypot(dx,dy)<b.size){
+      if(b.isBomb) return end();
+      balloons.splice(i,1);
+      scoreEl.textContent='Score: '+(++score);
+      return;
+    }
+  }
+});
+
+function startGame(){
+  reset();
+  running=true;
+  startO.style.display='none';
+  overO.style.display='none';
+  spawn(); timer=setInterval(spawn,800);
+  loop();
+}
+
+function end(){
+  running=false;
+  clearInterval(timer);
+  cancelAnimationFrame(anim);
+  if(score>highScore){
+    highScore=score; localStorage.setItem('popHigh',highScore);
+  }
+  finalE.textContent='Score: '+score;
+  highE.textContent='High Score: '+highScore;
+  overO.style.display='flex';
+}
+
+function restartGame(){
+  startGame();
+}
+</script>
+
+</body>
+</html>
