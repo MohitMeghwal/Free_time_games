@@ -15,15 +15,13 @@
     }
     #gameContainer {
       position:relative;
-      max-width:360px;
-      margin:0 auto;
+      width:100vw;
+      height:100vh;
     }
     canvas {
-      width:100%;
-      height:auto;
+      width:100vw;
+      height:100vh;
       background:linear-gradient(to top, #87ceeb, #fff);
-      border-left:4px solid #0ff;
-      border-right:4px solid #0ff;
       display:block;
     }
     .overlay {
@@ -56,7 +54,7 @@
 
 <div id="gameContainer">
   <div id="scoreDisplay">Score: 0</div>
-  <canvas id="gameCanvas" width="360" height="640"></canvas>
+  <canvas id="gameCanvas"></canvas>
 
   <div id="startScreen" class="overlay">
     <h1>Pop the Balloons</h1>
@@ -85,6 +83,13 @@ let balloons=[], score=0,
     highScore=localStorage.getItem('popHigh')||0,
     running=false, anim, timer;
 
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
 function reset(){
   balloons=[]; score=0;
   scoreEl.textContent='Score: 0';
@@ -107,6 +112,7 @@ function draw(){
     ctx.fillText(b.emoji, b.x, b.y);
     b.y-=b.vy;
   });
+  scoreEl.style.color = '#000';
 }
 
 function checkOff(){
@@ -138,7 +144,7 @@ canvas.addEventListener('click',e=>{
     if(Math.hypot(dx,dy)<b.size){
       if(b.isBomb) return end();
       balloons.splice(i,1);
-      scoreEl.textContent='Score: '+(++score);
+      scoreEl.textContent = 'Score: ' + (++score);
       return;
     }
   }
