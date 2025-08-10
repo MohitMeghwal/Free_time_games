@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0" />
+  <title>Rocket Dodge</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      touch-action: manipulation;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100%;
+      max-height: 100%;
+      background: #000;
+      border-left: 4px solid #0ff;
+      border-right: 4px solid #0ff;
+      margin: 0 auto;
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 18px;
+      background: #0ff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #0cc;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="startScreen" class="overlay">
+  <h1>Rocket Dodge</h1>
+  <p>Drag to move the rocket and avoid asteroids</p>
+  <button onclick="startGame()">Start</button>
+</div>
+
+<div id="gameOverScreen" class="overlay" style="display:none;">
+  <h2>Game Over</h2>
+  <p id="scoreDisplay"></p>
+  <p id="highScoreDisplay"></p>
+  <button onclick="restartGame()">Restart</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// Set canvas size to maintain 9:16 aspect ratio
+function resizeCanvas() {
+  const aspectRatio = 9 / 16;
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  if (windowWidth / windowHeight > aspectRatio) {
+    canvas.height = windowHeight;
+    canvas.width = windowHeight * aspectRatio;
+  } else {
+    canvas.width = windowWidth;
+    canvas.height = windowWidth / aspectRatio;
+  }
+  canvas.style.width = `${canvas.width}px`;
+  canvas.style.height = `${canvas.height}px`;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+let rocket, asteroids, spawnRate, speedMultiplier;
+let score = 0;
+let highScore = localStorage.getItem("rocketHighScore") || 0;
+let gameRunning = false;
+let animationId;
+let isDragging = false;
+
+function resetGame() {
+  rocket = { x: canvas.width / 2, y: canvas.height - 100, emoji: '🚀', size: 40 };
+  asteroids = [];
+  spawnRate = 0.02;
+  speedMultiplier = 1.0;
+  score = 0;
+}
+
+const asteroidEmojis = ['🪨', '🌑', '☄️'];
+
+function spawnAsteroid() {
+  const x = Math.random() * (canvas.width - 50);
+  const size = 20 + Math.random() * 30;
+  const emoji = asteroidEmojis[Math.floor(Math.random() * asteroidEmojis.length)];
+  const speed = 1.5 + Math.random() * 2.0; // Random speed between 1.5 and 3.5
+  asteroids.push({ x: x, y: -50, size: size, emoji: emoji, speed: speed });
+}
+
+function drawRocket() {
+  ctx.save();
+  ctx.translate(rocket.x, rocket.y);
+  ctx.rotate(5 * Math.PI / 180); // Slight tilt (5 degrees)
+  ctx.font = `${rocket.size}px Arial`;
+  ctx.fillText(rocket.emoji, -rocket.size / 2, 0);
+  ctx.restore();
+}
+
+function drawAsteroids() {
+  for (let a of asteroids) {
+    ctx.font = `${a.size}px Arial`;
+    ctx.fillText(a.emoji, a.x - a.size / 2, a.y);
+  }
+}
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Simple stars background
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 100; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const size = Math.random() * 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Update difficulty: speed and spawn rate
+  speedMultiplier = 1.0 + Math.floor(score / 500) * 0.1;
+  spawnRate = Math.min(0.02 + Math.floor(score / 500) * 0.005, 0.05);
+
+  for (let a of asteroids) a.y += a.speed * speedMultiplier; // Move asteroids downward
+  asteroids = asteroids.filter(a => a.y < canvas.height + 50);
+
+  if (Math.random() < spawnRate) spawnAsteroid();
+
+  // Collision detection
+  for (let a of asteroids) {
+    const dx = rocket.x - a.x;
+    const dy = rocket.y - a.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < (rocket.size + a.size) / 2) {
+      return endGame();
+    }
+  }
+
+  drawAsteroids();
+  drawRocket();
+
+  // Display score and difficulty level
+  ctx.fillStyle = "#fff";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 10, 30);
+  ctx.fillText("Level: " + (Math.floor(score / 500) + 1), 10, 60);
+  score++;
+
+  animationId = requestAnimationFrame(update);
+}
+
+function moveRocket(e) {
+  let clientX;
+  if (e.type.startsWith('touch')) {
+    e.preventDefault();
+    clientX = e.touches[0].clientX;
+  } else if (isDragging) {
+    clientX = e.clientX;
+  } else {
+    return;
+  }
+  let newX = clientX - canvas.getBoundingClientRect().left;
+  rocket.x = Math.max(rocket.size / 2, Math.min(canvas.width - rocket.size / 2, newX));
+}
+
+function startGame() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameOverScreen").style.display = "none";
+  resetGame();
+  gameRunning = true;
+  update();
+}
+
+function endGame() {
+  cancelAnimationFrame(animationId);
+  gameRunning = false;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("rocketHighScore", highScore);
+  }
+  document.getElementById("scoreDisplay").textContent = "Score: " + score;
+  document.getElementById("highScoreDisplay").textContent = "High Score: " + highScore;
+  document.getElementById("gameOverScreen").style.display = "flex";
+}
+
+function restartGame() {
+  startGame();
+}
+
+// Event listeners for drag/move
+canvas.addEventListener("mousedown", (e) => { isDragging = true; moveRocket(e); });
+canvas.addEventListener("mousemove", moveRocket);
+canvas.addEventListener("mouseup", () => { isDragging = false; });
+canvas.addEventListener("mouseleave", () => { isDragging = false; });
+
+canvas.addEventListener("touchstart", moveRocket);
+canvas.addEventListener("touchmove", moveRocket);
+</script>
+
+</body>
+</html>
