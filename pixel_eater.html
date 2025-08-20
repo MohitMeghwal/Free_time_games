@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pixel Eater</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      background: #222;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+    button {
+      background: #0ff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-top: 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font: 18px sans-serif;
+      pointer-events: none;
+      user-select: none;
+    }
+    .game-running canvas {
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <span>Score: <span id="score">0</span></span>
+    <span style="margin-left: 20px;">High: <span id="best">0</span></span>
+  </div>
+
+  <div id="startScreen" class="overlay">
+    <h1>Pixel Eater</h1>
+    <p>Eat only the shapes that match your color.</p>
+  <p>Wrong color = Game Over.</p>
+    <button id="startBtn">Start</button>
+  </div>
+
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h2>Game Over</h2>
+    <p>Score: <span id="finalScore">0</span></p>
+    <p>High Score: <span id="finalBest">0</span></p>
+    <button id="retryBtn">Play Again</button>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+
+      // UI elements
+      const scoreEl = document.getElementById('score');
+      const bestEl = document.getElementById('best');
+      const startScreen = document.getElementById('startScreen');
+      const gameOverScreen = document.getElementById('gameOverScreen');
+      const startBtn = document.getElementById('startBtn');
+      const retryBtn = document.getElementById('retryBtn');
+      const finalScoreEl = document.getElementById('finalScore');
+      const finalBestEl = document.getElementById('finalBest');
+
+      // DPR scaling, reduced for performance
+      let W=0, H=0, DPR=Math.min(1.5, window.devicePixelRatio || 1);
+      function resize(){
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = Math.floor(W * DPR);
+        canvas.height = Math.floor(H * DPR);
+        canvas.style.width = W+'px';
+        canvas.style.height = H+'px';
+        ctx.setTransform(DPR,0,0,DPR,0,0);
+      }
+      window.addEventListener('resize', resize, {passive:true});
+      resize();
+
+      // Colors palette
+      const COLORS = [
+        {name:'red',    c:'#ff5d5d'},
+        {name:'green',  c:'#35d07f'},
+        {name:'blue',   c:'#4ea2ff'},
+        {name:'yellow', c:'#ffd257'},
+      ];
+      function randColor(){return COLORS[(Math.random()*COLORS.length)|0];}
+
+      // Game state
+      let running=false, tLast=0, spawnTimer=0, colorTimer=0;
+      let score=0, best= +localStorage.getItem('pixel_eater_best') || 0;
+      bestEl.textContent = best;
+
+      const player = {
+        x: 0, y: 0, r: 18,
+        color: randColor(),
+        targetX: 0,
+        speedX: 0
+      };
+
+      // Falling shapes, cap at 20 to prevent overload
+      const shapes = [];
+      const MAX_SHAPES = 20;
+      function spawnShape(){
+        if (shapes.length >= MAX_SHAPES) return;
+        const size = 16 + Math.random()*16; // 16..32
+        const rand = Math.random();
+        const type = rand < 0.33 ? 'circle' : rand < 0.66 ? 'square' : 'triangle';
+        const c = randColor();
+        const x = size + Math.random()*(W - size*2);
+        const y = -size - 10;
+        const baseSpeed = 80; // Reduced initial speed for easier start
+        const accel = Math.min(2.2, 1 + score*0.001); // Slower speed increase with score
+        const vy = baseSpeed * (0.7 + Math.random()*0.6) * accel;
+        shapes.push({x,y,size,type,color:c,vy,rot:0,vr:(Math.random()*1-0.5)*1.2});
+      }
+
+      function reset(){
+        score = 0;
+        shapes.length = 0;
+        spawnTimer = 0;
+        colorTimer = 0;
+        player.x = W/2;
+        player.y = H*0.8;
+        player.targetX = player.x;
+        player.speedX = 0;
+        player.color = randColor();
+        scoreEl.textContent = '0';
+      }
+
+      function start(){
+        reset();
+        running = true;
+        startScreen.style.display='none';
+        gameOverScreen.style.display='none';
+        document.body.classList.add('game-running');
+        tLast = performance.now();
+        requestAnimationFrame(loop);
+      }
+
+      function over(){
+        running = false;
+        finalScoreEl.textContent = score;
+        if(score > best){ best = score; localStorage.setItem('pixel_eater_best', best); }
+        finalBestEl.textContent = best;
+        bestEl.textContent = best;
+        gameOverScreen.style.display='flex';
+        document.body.classList.remove('game-running');
+      }
+
+      // Input: move along X to finger/mouse
+      function setTargetFromEvent(e){
+        let clientX;
+        if(e.touches && e.touches[0]) clientX = e.touches[0].clientX;
+        else clientX = e.clientX;
+        player.targetX = Math.max(player.r, Math.min(W - player.r, clientX));
+      }
+      canvas.addEventListener('pointerdown', (e)=>{ setTargetFromEvent(e); });
+      canvas.addEventListener('pointermove', (e)=>{ if(e.pressure===0 && e.buttons===0) return; setTargetFromEvent(e); });
+      window.addEventListener('contextmenu', e=> e.preventDefault());
+
+      // UI bindings
+      startBtn.addEventListener('click', start);
+      startBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        start();
+      });
+      retryBtn.addEventListener('click', start);
+      retryBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        start();
+      });
+
+      function drawPlayer(){
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
+        ctx.fillStyle = player.color.c;
+        ctx.fill();
+
+        // Small highlight (no shadow for performance)
+        ctx.beginPath();
+        ctx.arc(player.x - player.r*0.35, player.y - player.r*0.35, player.r*0.3, 0, Math.PI*2);
+        ctx.fillStyle = '#ffffff40';
+        ctx.fill();
+      }
+
+      function drawShape(s){
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.rot);
+        ctx.fillStyle = s.color.c;
+        if(s.type === 'circle'){
+          ctx.beginPath();
+          ctx.arc(0, 0, s.size, 0, Math.PI*2);
+          ctx.fill();
+        } else if(s.type === 'square'){
+          const d = s.size*2;
+          ctx.fillRect(-s.size, -s.size, d, d);
+        } else if(s.type === 'triangle'){
+          ctx.beginPath();
+          ctx.moveTo(0, -s.size); // Top vertex
+          ctx.lineTo(s.size * Math.sqrt(3) / 2, s.size / 2); // Bottom right
+          ctx.lineTo(-s.size * Math.sqrt(3) / 2, s.size / 2); // Bottom left
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function circleRectCollide(cx, cy, cr, rx, ry, hw, hh){
+        const dx = Math.max(Math.abs(cx - rx) - hw, 0);
+        const dy = Math.max(Math.abs(cy - ry) - hh, 0);
+        return dx*dx + dy*dy <= cr*cr;
+      }
+
+      // Particles, cap at 50 to prevent overload
+      const pops = [];
+      const waves = [];
+      const MAX_PARTICLES = 50;
+      function popBurst(x,y,color){
+        if (pops.length >= MAX_PARTICLES) return;
+        for(let i=0;i<8;i++){
+          const a = Math.random()*Math.PI*2;
+          const sp = 80 + Math.random()*120;
+          pops.push({x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.5, color});
+        }
+      }
+      function shockwave(x,y,color){
+        if (waves.length >= MAX_PARTICLES) return;
+        waves.push({x,y, r:6, life:0.35, color});
+      }
+
+      function loop(tNow){
+        if(!running) return;
+        const dt = Math.min(0.034, (tNow - tLast)/1000);
+        tLast = tNow;
+
+        // Clear with solid color for performance
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0,0,W,H);
+
+        // Increase difficulty over time
+        const spawnRateBase = 1.0; // Increased initial spawn rate for slower start (higher value = slower spawning)
+        const spawnRate = Math.max(0.3, spawnRateBase - score*0.001); // Slower decrease in spawn interval with score
+        spawnTimer += dt;
+        if(spawnTimer >= spawnRate){
+          spawnTimer = 0;
+          spawnShape();
+          if(score > 20 && Math.random()<0.2) spawnShape(); // Occasional extra only after score 20, reduced probability
+        }
+
+        const colorInterval = 4.5;
+        colorTimer += dt;
+        if(colorTimer >= colorInterval){
+          colorTimer = 0;
+          let next;
+          do { next = randColor(); } while(next.name === player.color.name);
+          player.color = next;
+        }
+
+        const follow = 16;
+        player.x += (player.targetX - player.x) * Math.min(1, follow*dt);
+
+        for(let i=shapes.length-1;i>=0;i--){
+          const s = shapes[i];
+          s.y += s.vy * dt;
+          s.rot += s.vr * dt;
+
+          drawShape(s);
+
+          let hit = false;
+          if(s.type === 'circle'){
+            const dx = s.x - player.x, dy = s.y - player.y;
+            hit = (dx*dx + dy*dy) <= (s.size + player.r)*(s.size + player.r);
+          } else {
+            const halfWidth = s.type === 'triangle' ? s.size * Math.sqrt(3) / 2 : s.size;
+            const halfHeight = s.type === 'triangle' ? s.size : s.size;
+            hit = circleRectCollide(player.x, player.y, player.r, s.x, s.y, halfWidth, halfHeight);
+          }
+
+          if(hit){
+            if(s.color.name === player.color.name){
+              score++;
+              scoreEl.textContent = score;
+              shapes.splice(i,1);
+              popBurst(s.x, s.y, s.color.c);
+            } else {
+              shockwave(s.x, s.y, s.color.c);
+              over();
+              return;
+            }
+          } else if(s.y - s.size > H + 40){
+            shapes.splice(i,1);
+          }
+        }
+
+        drawPlayer();
+
+        // Render particles only if active
+        if (pops.length > 0 || waves.length > 0) {
+          for(let i=pops.length-1;i>=0;i--){
+            const p = pops[i];
+            p.life -= 1/60;
+            p.x += p.vx/60;
+            p.y += p.vy/60;
+            if(p.life<=0){ pops.splice(i,1); continue; }
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+            ctx.fillStyle = p.color + Math.floor(p.life*255).toString(16).padStart(2,'0');
+            ctx.fill();
+          }
+          for(let i=waves.length-1;i>=0;i--){
+            const w = waves[i];
+            w.life -= 1/60;
+            w.r += 600/60;
+            if(w.life<=0){ waves.splice(i,1); continue; }
+            ctx.beginPath();
+            ctx.arc(w.x, w.y, w.r, 0, Math.PI*2);
+            ctx.strokeStyle = w.color + Math.floor(w.life*200).toString(16).padStart(2,'0');
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // Place player initially and target center
+      player.x = W/2; player.y = H*0.8; player.targetX = player.x;
+
+      // Start the game loop
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
