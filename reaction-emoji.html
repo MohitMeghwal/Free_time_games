@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Reaction Emoji</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      background: #222;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+    button {
+      background: #0ff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-top: 20px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="startScreen" class="overlay">
+    <h1>Reaction Emoji</h1>
+    <p>Tap the emoji before time runs out!</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="scoreText"></p>
+    <p id="highScoreText"></p>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    let W, H;
+
+    function resizeCanvas() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    const EMOJIS = [
+      "😀","😎","🤩","🎯","🚀","🔥","💎","⭐","🍀","🎲","🐱","🐶","🐼","🍕","🍩",
+      "🔘","😁","😉","💣","🤑","😈","👾","🌏","🛞","🌝","🎃","🎮","💰","⚙️","🚭","🇮🇳"
+    ];
+    
+    let gameRunning = false;
+    let score = 0;
+    let highScore = localStorage.getItem("reactionHigh") || 0;
+    let target = {};
+    let timeLimit = 1000; 
+    let minTime = 400; 
+    let decay = 30; 
+    let roundStart = 0;
+
+    function spawnEmoji() {
+      target.emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      target.size = 60;
+      target.x = Math.random() * (W - target.size*2) + target.size;
+      target.y = Math.random() * (H - target.size*2) + target.size;
+      target.r = target.size * 0.6;
+      roundStart = performance.now(); // reset timer start
+    }
+
+    function startGame() {
+      document.getElementById("startScreen").style.display = "none";
+      gameRunning = true;
+      score = 0;
+      timeLimit = 1000;
+      spawnEmoji();
+      requestAnimationFrame(update);
+    }
+
+    function restartGame() {
+      document.getElementById("gameOverScreen").style.display = "none";
+      startGame();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("reactionHigh", highScore);
+      }
+      document.getElementById("scoreText").textContent = "Score: " + score;
+      document.getElementById("highScoreText").textContent = "High Score: " + highScore;
+      document.getElementById("gameOverScreen").style.display = "flex";
+    }
+
+    function update(now) {
+      if (!gameRunning) return;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw emoji
+      ctx.font = target.size + "px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(target.emoji, target.x, target.y);
+
+      // Timer bar
+      let elapsed = now - roundStart;
+      let t = Math.max(0, 1 - elapsed / timeLimit);
+      ctx.fillStyle = t < 0.25 ? "#f44" : "#0f0";
+      ctx.fillRect(0, H - 10, W * t, 10);
+
+      if (elapsed >= timeLimit) {
+        endGame();
+        return;
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    function handleTap(x, y) {
+      if (!gameRunning) return;
+      let dx = x - target.x;
+      let dy = y - target.y;
+      if (dx*dx + dy*dy <= target.r*target.r) {
+        // ✅ Correct tap
+        score++;
+        timeLimit = Math.max(minTime, timeLimit - decay);
+        spawnEmoji(); // new emoji
+      } 
+      // ❌ Wrong tap ignored
+    }
+
+    canvas.addEventListener("click", e => handleTap(e.clientX, e.clientY));
+    canvas.addEventListener("touchstart", e => {
+      const t = e.touches[0];
+      handleTap(t.clientX, t.clientY);
+    });
+  </script>
+</body>
+</html>
