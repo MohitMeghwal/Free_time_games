@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Gravity Flip Runner</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #111;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(#111, #222);
+    }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      flex-direction: column;
+      text-align: center;
+      z-index: 10;
+    }
+    .overlay h1 {
+      font-size: 2em;
+      margin-bottom: 0.5em;
+    }
+    .overlay p {
+      font-size: 1em;
+      margin-bottom: 1em;
+      opacity: 0.8;
+    }
+    button {
+      padding: 0.8em 1.6em;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 8px;
+      background: #08c;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #06a;
+    }
+    #hud {
+      position: absolute;
+      top: 10px; left: 10px; right: 10px;
+      display: flex;
+      justify-content: space-between;
+      color: #fff;
+      font-size: 1em;
+      z-index: 5;
+      text-shadow: 1px 1px 2px #000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <!-- HUD -->
+  <div id="hud" style="display:none;">
+    <div id="score">Score: 0</div>
+    <div id="highscore">High: 0</div>
+  </div>
+  
+  <!-- Start Screen -->
+  <div id="startScreen" class="overlay">
+    <h1>Gravity Flip Runner</h1>
+    <p>Tap or press Space to flip gravity</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+  
+  <!-- Game Over Screen -->
+  <div id="gameOverScreen" class="overlay" style="display:none;">
+    <h1>Game Over</h1>
+    <p id="finalScore">Score: 0</p>
+    <p id="bestScore">High: 0</p>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+  
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    let gameRunning = false;
+    let player, gravity, obstacles, score, highScore, speed, spawnTimer;
+    highScore = localStorage.getItem("gravityFlipHigh") || 0;
+
+    document.getElementById("highscore").innerText = "High: " + highScore;
+
+    // Player setup
+    function initGame() {
+      player = {
+        x: canvas.width * 0.2,
+        y: canvas.height - 40,
+        radius: 20,
+        vy: 0,
+        onGround: true,
+        gravityDir: 1
+      };
+      gravity = 0.6;
+      obstacles = [];
+      score = 0;
+      speed = 4;
+      spawnTimer = 0;
+    }
+
+    function startGame() {
+      document.getElementById("startScreen").style.display = "none";
+      document.getElementById("gameOverScreen").style.display = "none";
+      document.getElementById("hud").style.display = "flex";
+      initGame();
+      gameRunning = true;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    // Flip input
+    window.addEventListener("keydown", e => {
+      if (e.code === "Space") flipGravity();
+    });
+    canvas.addEventListener("click", flipGravity);
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      flipGravity();
+    });
+
+    function flipGravity() {
+      if (!gameRunning) return;
+      player.gravityDir *= -1;
+      playFlipSound();
+    }
+
+    // Flip sound
+    function playFlipSound() {
+      try {
+        const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctxAudio.createOscillator();
+        const gain = ctxAudio.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(440, ctxAudio.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(220, ctxAudio.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.1, ctxAudio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctxAudio.currentTime + 0.2);
+        osc.connect(gain).connect(ctxAudio.destination);
+        osc.start();
+        osc.stop(ctxAudio.currentTime + 0.2);
+      } catch (err) {}
+    }
+
+    // Obstacle generator
+    function spawnObstacle() {
+      const isTop = Math.random() < 0.5;
+      obstacles.push({
+        x: canvas.width + 50,
+        y: isTop ? 0 : canvas.height - 40,
+        width: 30,
+        height: 40,
+        top: isTop
+      });
+    }
+
+    function update() {
+      // Gravity
+      player.vy += gravity * player.gravityDir;
+      player.y += player.vy;
+      
+      // Floor / Ceiling
+      if (player.y + player.radius > canvas.height) {
+        player.y = canvas.height - player.radius;
+        player.vy = 0;
+      }
+      if (player.y - player.radius < 0) {
+        player.y = player.radius;
+        player.vy = 0;
+      }
+
+      // Obstacles
+      spawnTimer += 1;
+      if (spawnTimer > 90) {
+        spawnObstacle();
+        spawnTimer = 0;
+      }
+      obstacles.forEach(o => o.x -= speed);
+      obstacles = obstacles.filter(o => o.x + o.width > 0);
+
+      // Collision
+      for (let o of obstacles) {
+        if (circleRectCollision(player, o)) {
+          endGame();
+        }
+      }
+
+      // Score
+      score += 1;
+
+      // ✅ Speed increases with score
+      speed = 4 + Math.floor(score / 300); 
+      // (every 300 points, speed increases by +1)
+
+      document.getElementById("score").innerText = "Score: " + score;
+      document.getElementById("highscore").innerText = "High: " + highScore;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Player
+      ctx.fillStyle = "#0af";
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Obstacles
+      ctx.fillStyle = "#f55";
+      obstacles.forEach(o => {
+        ctx.fillRect(o.x, o.y, o.width, o.height);
+      });
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      gameRunning = false;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("gravityFlipHigh", highScore);
+      }
+      document.getElementById("hud").style.display = "none";
+      document.getElementById("finalScore").innerText = "Score: " + score;
+      document.getElementById("bestScore").innerText = "High: " + highScore;
+      document.getElementById("gameOverScreen").style.display = "flex";
+    }
+
+    function circleRectCollision(c, r) {
+      const distX = Math.abs(c.x - r.x - r.width/2);
+      const distY = Math.abs(c.y - r.y - r.height/2);
+      if (distX > (r.width/2 + c.radius)) return false;
+      if (distY > (r.height/2 + c.radius)) return false;
+      if (distX <= (r.width/2)) return true;
+      if (distY <= (r.height/2)) return true;
+      const dx = distX - r.width/2;
+      const dy = distY - r.height/2;
+      return (dx*dx + dy*dy <= (c.radius*c.radius));
+    }
+  </script>
+</body>
+</html>
